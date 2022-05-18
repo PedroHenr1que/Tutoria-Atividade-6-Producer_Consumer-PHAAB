@@ -3,6 +3,9 @@
 ## Aluno
 * Nome: Pedro Henrique Araújo de Assis Bezerra
 
+## Code Objective
+* Producer/Consumer problem implementation, with circular buffer.
+
 ## Clone Project
 
 ```bash
