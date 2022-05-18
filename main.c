@@ -10,10 +10,10 @@ void *consumer(void *idProducer);
 int produce();
 int consume();
 
-dispatch_semaphore_t empty, full;
+dispatch_semaphore_t empty, full, mutex;
 
 int* buffer = NULL;
-int quantInTheBuffer = 0, limit = 0, x = 0;
+int limit = 0, x = 0;
 int bufferIndexIn = 0, bufferIndexOut = 0;
 int bufferSize = 0;
 
@@ -21,11 +21,12 @@ int main() {
 
         int quantProd, quantCons;
 
-        empty = dispatch_semaphore_create(1);
+        scanf("%d %d %d %d", &quantProd, &quantCons, &limit, &bufferSize);
+
+        mutex = dispatch_semaphore_create(1);
+        empty = dispatch_semaphore_create(bufferSize);
         full = dispatch_semaphore_create(0);
 
-        scanf("%d %d %d %d", &quantProd, &quantCons, &limit, &bufferSize);
-        
         //Initialize global buffer
         buffer = calloc(bufferSize, sizeof(int));
 
@@ -77,22 +78,15 @@ void *producer(void *idProducer) {
                 x = (x + 1)%(limit+1);
 
                 dispatch_semaphore_wait(empty, DISPATCH_TIME_FOREVER);
+                dispatch_semaphore_wait(mutex, DISPATCH_TIME_FOREVER);
 
-                
-                //if (buffer[bufferIndexIn] == NULL) {
-                        buffer[bufferIndexIn] = producedValue;
-                        printf("\nProdutor %d produzindo %d na posicao %d", *producerId, producedValue, bufferIndexIn);
-                        quantInTheBuffer++;
-                //}
+                buffer[bufferIndexIn] = producedValue;
+                printf("\nProdutor %d produzindo %d na posicao %d", *producerId, producedValue, bufferIndexIn);
 
                 bufferIndexIn = (bufferIndexIn + 1)%bufferSize;
-                
-                if (quantInTheBuffer == 1) {
-                        dispatch_semaphore_signal(full);
-                }
 
-                dispatch_semaphore_signal(empty);
-
+                dispatch_semaphore_signal(full);
+                dispatch_semaphore_signal(mutex);
         }
         
 }
@@ -106,27 +100,16 @@ void *consumer(void *idConsumer) {
         int *consumerId = idConsumer;
         int aux = 0;
 
-        dispatch_semaphore_wait(full, DISPATCH_TIME_FOREVER);
-
         while (1) {
-                dispatch_semaphore_wait(empty, DISPATCH_TIME_FOREVER);
+                dispatch_semaphore_wait(full, DISPATCH_TIME_FOREVER);
+                dispatch_semaphore_wait(mutex, DISPATCH_TIME_FOREVER);
 
-                ///if (buffer[bufferIndexOut] != NULL) {
-                        int consumedValue = consume();
-                        printf("\nConsumidor %d consumindo %d da posicao %d", *consumerId, consumedValue, bufferIndexOut);
-                        quantInTheBuffer--;
-                        
-                //}
-
+                int consumedValue = consume();
+                printf("\nConsumidor %d consumindo %d da posicao %d", *consumerId, consumedValue, bufferIndexOut);
                 bufferIndexOut = (bufferIndexOut + 1)%bufferSize;
-                
-                aux = quantInTheBuffer;
 
                 dispatch_semaphore_signal(empty);
-
-                if (aux == 0) {
-                        dispatch_semaphore_wait(full, DISPATCH_TIME_FOREVER);
-                }
+                dispatch_semaphore_signal(mutex);
         }
 
 }
